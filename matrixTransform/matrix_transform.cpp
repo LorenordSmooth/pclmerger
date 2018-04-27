@@ -3,9 +3,17 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/point_cloud.h>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/octree/octree_impl.h>
+#include <pcl/octree/octree_search.h>
 #include <pcl/console/parse.h>
 #include <pcl/common/transforms.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <inttypes.h>
+#include <stdint.h>
+
+using namespace pcl;
+using namespace octree;
 
 // This function displays the help
 void
@@ -22,7 +30,7 @@ main(int argc, char** argv)
 {
 
 	// Show help
-	if (pcl::console::find_switch(argc, argv, "-h") || pcl::console::find_switch(argc, argv, "--help")) {
+	if (console::find_switch(argc, argv, "-h") || console::find_switch(argc, argv, "--help")) {
 		showHelp(argv[0]);
 		return 0;
 	}
@@ -31,10 +39,10 @@ main(int argc, char** argv)
 	std::vector<int> filenames;
 	bool file_is_pcd = false;
 
-	filenames = pcl::console::parse_file_extension_argument(argc, argv, ".ply");
+	filenames = console::parse_file_extension_argument(argc, argv, ".ply");
 
 	if (filenames.size() != 1) {
-		filenames = pcl::console::parse_file_extension_argument(argc, argv, ".pcd");
+		filenames = console::parse_file_extension_argument(argc, argv, ".pcd");
 
 		if (filenames.size() != 1) {
 			showHelp(argv[0]);
@@ -45,94 +53,113 @@ main(int argc, char** argv)
 		}
 	}
 
-	// Load file | Works with PCD and PLY files
-	pcl::PointCloud<pcl::PointXYZ>::Ptr source_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+	// Load files | Works with PCD and PLY files
+	PointCloud<PointXYZRGBL>::Ptr cloud1(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloud2(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloud3(new PointCloud<PointXYZRGBL>());
 
+	// Assuming both pointclouds will either be .ply or .pcd
 	if (file_is_pcd) {
-		if (pcl::io::loadPCDFile(argv[filenames[0]], *source_cloud) < 0) {
+		if (io::loadPCDFile(argv[filenames[0]], *cloud1) < 0) {
+			std::cout << "Error loading point cloud " << argv[filenames[0]] << std::endl << std::endl;
+			showHelp(argv[0]);
+			return -1;
+		}
+		if (io::loadPCDFile(argv[filenames[0]], *cloud2) < 0) {
 			std::cout << "Error loading point cloud " << argv[filenames[0]] << std::endl << std::endl;
 			showHelp(argv[0]);
 			return -1;
 		}
 	}
 	else {
-		if (pcl::io::loadPLYFile(argv[filenames[0]], *source_cloud) < 0) {
+		if (io::loadPLYFile(argv[filenames[0]], *cloud1) < 0) {
+			std::cout << "Error loading point cloud " << argv[filenames[0]] << std::endl << std::endl;
+			showHelp(argv[0]);
+			return -1;
+		}
+		if (io::loadPLYFile(argv[filenames[0]], *cloud2) < 0) {
 			std::cout << "Error loading point cloud " << argv[filenames[0]] << std::endl << std::endl;
 			showHelp(argv[0]);
 			return -1;
 		}
 	}
 
-	/* Reminder: how transformation matrices work :
+	// Iteriere ueber beide Clouds und gebe jedem Punkt jeweils Label 1 oder 2, je nach Zugehhoerigkeit
+	uint32_t label1 = 1;
+	for (auto &p1 : cloud1->points) p1.label = label1;
 
-	|-------> This column is the translation
-	| 1 0 0 x |  \
-	| 0 1 0 y |   }-> The identity 3x3 matrix (no rotation) on the left
-	| 0 0 1 z |  /
-	| 0 0 0 1 |    -> We do not use this line (and it has to stay 0,0,0,1)
+	uint32_t label2 = 1;
+	for (auto &p2 : cloud2->points) p2.label = label2;
 
-	METHOD #1: Using a Matrix4f
-	This is the "manual" method, perfect to understand but error prone !
-	*/
-	Eigen::Matrix4f transform_1 = Eigen::Matrix4f::Identity();
+	// Merge beide Clouds (alternativ concatenatePointCloud?)
+	*cloud3 = *cloud1;
+	*cloud3 = *cloud3 + *cloud2;
 
-	// Define a rotation matrix (see https://en.wikipedia.org/wiki/Rotation_matrix)
-	float theta = M_PI / 4; // The angle of rotation in radians
-	transform_1(0, 0) = cos(theta);
-	transform_1(0, 1) = -sin(theta);
-	transform_1(1, 0) = sin(theta);
-	transform_1(1, 1) = cos(theta);
-	//    (row, column)
 
-	// Define a translation of 2.5 meters on the x axis.
-	transform_1(0, 3) = 2.5;
+	// Tiefes des Baumes (standard scheint m, moeglicherweise immer im Bezug auf Quelldaten)
+	float resolution = 0.1f;
 
-	// Print the transformation
-	printf("Method #1: using a Matrix4f\n");
-	std::cout << transform_1 << std::endl;
+	// Octree auf gemergte Pointcloud
+	OctreePointCloudSearch<PointXYZRGBL> octree(resolution);
 
-	/*  METHOD #2: Using a Affine3f
-	This method is easier and less error prone
-	*/
-	Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+	octree.defineBoundingBox(); // startet an erstem eingelesen Punkt, kann also sehr ungenau sein
+	//octree.max_objs_per_leaf_ = (size_t)50000;
 
-	// Define a translation of 2.5 meters on the x axis.
-	transform_2.translation() << 2.5, 0.0, 0.0;
+	octree.setInputCloud(cloud3);
+	octree.addPointsFromInputCloud();
 
-	// The same rotation matrix as before; theta radians around Z axis
-	transform_2.rotate(Eigen::AngleAxisf(theta, Eigen::Vector3f::UnitZ()));
+	OctreeLeafNodeIterator<OctreePointCloudSearch<PointXYZRGBL>> leafIterator(&octree);
 
-	// Print the transformation
-	printf("\nMethod #2: using an Affine3f\n");
-	std::cout << transform_2.matrix() << std::endl;
+	for (leafIterator = octree.leaf_begin();
+		leafIterator != octree.leaf_end(); ++leafIterator)
 
-	// Executing the transformation
-	pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-	// You can either apply transform_1 or transform_2; they are the same
-	pcl::transformPointCloud(*source_cloud, *transformed_cloud, transform_2);
+	/*PointXYZRGBL searchPoint;
 
-	// Visualization
-	printf("\nPoint cloud colors :  white  = original point cloud\n"
-		"                        red  = transformed point cloud\n");
-	pcl::visualization::PCLVisualizer viewer("Matrix transformation example");
+	searchPoint.x = 38.02509;
+	searchPoint.y = 138.52509;
+	searchPoint.z = 666.81418;
 
-	// Define R,G,B colors for the point cloud
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> source_cloud_color_handler(source_cloud, 255, 255, 255);
-	// We add the point cloud to the viewer and pass the color handler
-	viewer.addPointCloud(source_cloud, source_cloud_color_handler, "original_cloud");
+	std::vector<int> pointIdxVec;
 
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> transformed_cloud_color_handler(transformed_cloud, 230, 20, 20); // Red
-	viewer.addPointCloud(transformed_cloud, transformed_cloud_color_handler, "transformed_cloud");
+	if (octree1.voxelSearch(searchPoint, pointIdxVec))
+	{
+		std::cout << "Neighbors within voxel search at (" << searchPoint.x
+			<< " " << searchPoint.y
+			<< " " << searchPoint.z << ")"
+			<< std::endl;
 
-	viewer.addCoordinateSystem(1.0, "cloud", 0);
-	viewer.setBackgroundColor(0.05, 0.05, 0.05, 0); // Setting background to a dark grey
-	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "original_cloud");
-	viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "transformed_cloud");
-	//viewer.setPosition(800, 400); // Setting visualiser window position
+		for (size_t i = 0; i < pointIdxVec.size(); ++i)
+			std::cout << "    " << cloud1->points[pointIdxVec[i]].x
+			<< " " << cloud1->points[pointIdxVec[i]].y
+			<< " " << cloud1->points[pointIdxVec[i]].z << std::endl;
+	}*/
 
-	while (!viewer.wasStopped()) { // Display the visualiser until 'q' key is pressed
-		viewer.spinOnce();
-	}
+	//KdTreeFLANN<PointXYZ> kdtree;
+
+	//kdtree.setInputCloud(cloud);
+
+	//PointXYZ searchPoint;
+
+	////starting searchPoint
+	//searchPoint.x = 38.01541;
+	//searchPoint.y = 138.50537;
+	//searchPoint.z = 666.83116;
+
+	//// K nearest neighbor search
+
+	//int K = 10;
+
+	//std::vector<int> pointIdxNKNSearch(K);
+	//std::vector<float> pointNKNSquaredDistance(K);
+
+	//if (kdtree.nearestKSearch(searchPoint, K, pointIdxNKNSearch, pointNKNSquaredDistance) > 0)
+	//{
+	//	for (size_t i = 0; i < pointIdxNKNSearch.size(); ++i)
+	//		std::cout << "    " << cloud->points[pointIdxNKNSearch[i]].x
+	//		<< " " << cloud->points[pointIdxNKNSearch[i]].y
+	//		<< " " << cloud->points[pointIdxNKNSearch[i]].z
+	//		<< " (squared distance: " << pointNKNSquaredDistance[i] << ")" << std::endl;
+	//}
 
 	return 0;
 }
