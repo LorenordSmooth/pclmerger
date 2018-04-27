@@ -103,24 +103,37 @@ main(int argc, char** argv)
 
 	for (size_t i = 0; i < cloud2->points.size(); ++i)
 	{
-		cloud1->points[i].x = 10.01f - i;
-		cloud1->points[i].y = 10.01f - i;
-		cloud1->points[i].z = 10.01f - i;
+		cloud2->points[i].x = 10.01f - i;
+		cloud2->points[i].y = 10.01f - i;
+		cloud2->points[i].z = 10.01f - i;
 	}
 	// Iteriere ueber beide Clouds und gebe jedem Punkt jeweils Label 1 oder 2, je nach Zugehhoerigkeit
-	uint32_t label1 = 1;
+	uint32_t label1 = 2;
 	for (auto &p1 : cloud1->points) p1.label = label1;
 
-	uint32_t label2 = 2;
+	uint32_t label2 = 1;
 	for (auto &p2 : cloud2->points) p2.label = label2;
 
 	// Merge beide Clouds (alternativ concatenatePointCloud?)
-	*cloud3 = *cloud1;
-	*cloud3 = *cloud3 + *cloud2;
+	cloud3->width = cloud1->width + cloud2->width;
+	cloud3->height = 1;
+	cloud3->points.resize(cloud3->width * cloud3->height);
 
+	for (size_t i = 0; i < cloud1->size(); i++) {
+		cloud3->points[i] = cloud1->points[i];
+	}
+
+	for (size_t i = 0; i < cloud2->size(); i++) {
+		cloud3->points[i + cloud1->size()] = cloud2->points[i];
+	}
+	
+	/*
+	cloud3 = cloud1;
+	cloud3 = cloud3 + cloud2;
+	*/
 
 	// Tiefes des Baumes (standard scheint m, moeglicherweise immer im Bezug auf Quelldaten)
-	float resolution = 128.0f;
+	float resolution = 3.0f;
 
 	// Octree auf gemergte Pointcloud
 	OctreePointCloud<PointXYZRGBL> octree(resolution);
@@ -130,7 +143,7 @@ main(int argc, char** argv)
 	octree.setInputCloud(cloud3);
 	octree.addPointsFromInputCloud();
 
-	octree.defineBoundingBox(); // startet an erstem eingelesen Punkt, kann also sehr ungenau sein
+	//octree.defineBoundingBox(); // startet an erstem eingelesen Punkt, kann also sehr ungenau sein
 								
 	OctreePointCloud<PointXYZRGBL>::LeafNodeIterator iter(&octree);
 
