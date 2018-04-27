@@ -108,14 +108,14 @@ main(int argc, char** argv)
 		cloud2->points[i].z = 10.01f - i;
 	}
 	// Iteriere ueber beide Clouds und gebe jedem Punkt jeweils Label 1 oder 2, je nach Zugehhoerigkeit
-	uint32_t label1 = 2;
+	uint32_t label1 = 1;
 	for (auto &p1 : cloud1->points) p1.label = label1;
 
-	uint32_t label2 = 1;
+	uint32_t label2 = 2;
 	for (auto &p2 : cloud2->points) p2.label = label2;
 
 	// Merge beide Clouds (alternativ concatenatePointCloud?)
-	cloud3->width = cloud1->width + cloud2->width;
+	/*cloud3->width = cloud1->width + cloud2->width;
 	cloud3->height = 1;
 	cloud3->points.resize(cloud3->width * cloud3->height);
 
@@ -125,15 +125,13 @@ main(int argc, char** argv)
 
 	for (size_t i = 0; i < cloud2->size(); i++) {
 		cloud3->points[i + cloud1->size()] = cloud2->points[i];
-	}
+	}*/
 	
-	/*
-	cloud3 = cloud1;
-	cloud3 = cloud3 + cloud2;
-	*/
+	*cloud3 = *cloud1;
+	*cloud3 = *cloud3 + *cloud2;
 
 	// Tiefes des Baumes (standard scheint m, moeglicherweise immer im Bezug auf Quelldaten)
-	float resolution = 3.0f;
+	float resolution = 3.03f;
 
 	// Octree auf gemergte Pointcloud
 	OctreePointCloud<PointXYZRGBL> octree(resolution);
@@ -141,14 +139,30 @@ main(int argc, char** argv)
 	//octree.max_objs_per_leaf_ = (size_t)50000;
 
 	octree.setInputCloud(cloud3);
+	//octree.defineBoundingBox();
+	octree.defineBoundingBox(10.0f); // startet an erstem eingelesen Punkt, kann also sehr ungenau sein
 	octree.addPointsFromInputCloud();
-
-	//octree.defineBoundingBox(); // startet an erstem eingelesen Punkt, kann also sehr ungenau sein
 								
 	OctreePointCloud<PointXYZRGBL>::LeafNodeIterator iter(&octree);
 
 	// Vector speichert Indizes von Punkten im aktuellen Leafnode
 	std::vector<int> indexVector;
+
+	/*OctreePointCloudPointVector<PointXYZ>::LeafNodeIterator it;
+	const OctreePointCloudPointVector<PointXYZ>::LeafNodeIterator it_end = octree.leaf_end();
+
+	for (it = octree.leaf_begin(); it != it_end; ++it)
+	{
+		OctreeContainerPointIndices& container = it.getLeafContainer();
+		container.getPointIndices(indexVector);
+		for (size_t i = 0; i < indexVector.size(); ++i)
+			std::cout << "    " << cloud3->points[indexVector[i]].x
+			<< " " << cloud3->points[indexVector[i]].y
+			<< " " << cloud3->points[indexVector[i]].z
+			<< " " << cloud3->points[indexVector[i]].label
+			<< std::endl;
+		std::cout << " Ende eines Leafnode " << std::endl;
+	}*/
 
 	// Iteriere ueber alle Leafnodes
 	for (iter = octree.leaf_begin(); iter != octree.leaf_end(); ++iter) 
@@ -164,24 +178,24 @@ main(int argc, char** argv)
 			<< " " << cloud3->points[indexVector[i]].y
 			<< " " << cloud3->points[indexVector[i]].z 
 			<< " " << cloud3->points[indexVector[i]].label
-			<< " Ende Leafnode " << std::endl;
+			<< std::endl;
+		std::cout << " Ende eines Leafnode " << std::endl;
 
-
-	//	std::vector<int>::iterator iterVector;
-	//	for (iterVector = indexVector.begin;
-	//		iterVector != indexVector.end; ++iterVector) {
-	//		std::cout << "    " << cloud1->points[indexVector[iterVector]].x
-	//			<< " " << cloud1->points[indexVector[iterVector]].y
-	//			<< " " << cloud1->points[indexVector[iterVector]].z << std::endl;
-	//		/*int counterCloud1;
-	//		int counterCloud2;
-	//		if (cloud3->points[iterVector].label = 1) {
-	//			counterCloud1++;
-	//		}
-	//		else {
-	//			counterCloud2++;
-	//		}
-	//	}*/
+	////	std::vector<int>::iterator iterVector;
+	////	for (iterVector = indexVector.begin;
+	////		iterVector != indexVector.end; ++iterVector) {
+	////		std::cout << "    " << cloud1->points[indexVector[iterVector]].x
+	////			<< " " << cloud1->points[indexVector[iterVector]].y
+	////			<< " " << cloud1->points[indexVector[iterVector]].z << std::endl;
+	////		/*int counterCloud1;
+	////		int counterCloud2;
+	////		if (cloud3->points[iterVector].label = 1) {
+	////			counterCloud1++;
+	////		}
+	////		else {
+	////			counterCloud2++;
+	////		}
+	////	}*/
 			}
 
 	/*PointXYZRGBL searchPoint;
