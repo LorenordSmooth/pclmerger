@@ -9,7 +9,6 @@
 #include <pcl/console/parse.h>
 #include <pcl/common/transforms.h>
 
-
 #include <pcl/PointIndices.h>
 #include <inttypes.h>
 #include <stdint.h>
@@ -60,7 +59,7 @@ main(int argc, char** argv)
 	PointCloud<PointXYZRGBL>::Ptr cloud1(new PointCloud<PointXYZRGBL>());
 	PointCloud<PointXYZRGBL>::Ptr cloud2(new PointCloud<PointXYZRGBL>());
 	PointCloud<PointXYZRGBL>::Ptr cloud3(new PointCloud<PointXYZRGBL>());
-	//PointCloud<PointXYZRGBL>::Ptr cloudFiltered(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloudFiltered(new PointCloud<PointXYZRGBL>());
 
 	// Assuming both pointclouds will either be .ply or .pcd
 	/*if (file_is_pcd) {
@@ -112,11 +111,21 @@ main(int argc, char** argv)
 	}
 	// Iteriere ueber beide Clouds und gebe jedem Punkt jeweils Label 1 oder 2, je nach Zugehhoerigkeit
 	uint32_t label1 = 1;
-	for (auto &p1 : cloud1->points) p1.label = label1;
+	uint8_t r1 = 255, g1 = 0, b1 = 0;
+	uint32_t rgb1 = ((uint32_t)r1 << 16 | (uint32_t)g1 << 8 | (uint32_t)b1);
+
+	for (auto &p1 : cloud1->points) {
+		p1.label = label1;
+		p1.rgb = *reinterpret_cast<float*>(&rgb1);
+	}
 
 	uint32_t label2 = 2;
-	for (auto &p2 : cloud2->points) p2.label = label2;
-
+	uint8_t r2 = 0, g2 = 0, b2 = 255; 
+	uint32_t rgb2 = ((uint32_t)r2 << 16 | (uint32_t)g2 << 8 | (uint32_t)b2);
+	for (auto &p2 : cloud2->points) {
+		p2.label = label2;
+		p2.rgb = *reinterpret_cast<float*>(&rgb2);
+	}
 	// Merge beide Clouds (alternativ concatenatePointCloud?)
 	/*cloud3->width = cloud1->width + cloud2->width;
 	cloud3->height = 1;
@@ -134,7 +143,7 @@ main(int argc, char** argv)
 	*cloud3 = *cloud3 + *cloud2;
 
 	// Tiefes des Baumes (standard scheint m, moeglicherweise immer im Bezug auf Quelldaten)
-	float resolution = 1.33f;
+	float resolution = 0.33f;
 
 	// Octree auf gemergte Pointcloud
 	OctreePointCloud<PointXYZRGBL> octree(resolution);
@@ -165,9 +174,6 @@ main(int argc, char** argv)
 		{
 
 			indexVector = iter.getLeafContainer().getPointIndicesVector();
-
-			/*int counterCloud1;
-			int counterCloud2;*/
 
 			// Ueberpruefe bei jedem Punkt im Leafnode, welches Label er hat
 			// Die Pointcloud mit mehr Punkten im Leafnode wird praeferiert
@@ -214,11 +220,20 @@ main(int argc, char** argv)
 			indexVectorCloud1.clear();
 			indexVectorCloud2.clear();
 		}
-		for (size_t i = 0; i < gesamtIndices.size(); ++i) {
+
+	// Uebersicht zu Testzwecken
+	for (size_t i = 0; i < gesamtIndices.size(); ++i) {
 			std::cout << "    " << cloud3->points[gesamtIndices[i]].x <<
 						 "    " << cloud3->points[gesamtIndices[i]].label << 
 						 "    " << gesamtIndices[i] << std::endl;
 		}
+
+	// gesamtIndices erhaelt nun die gefilterte Cloud3, diese Indices gilt es nun wieder in eine Cloud zu ueberfuehren
+	for (size_t i = 0; i < gesamtIndices.size(); ++i) {
+		cloudFiltered->push_back(cloud3->points[gesamtIndices[i]]);
+	}
+	std::string writePath = "Test.ply";
+	pcl::io::savePLYFileBinary(writePath, *cloudFiltered);
 
 	return 0;
 }
