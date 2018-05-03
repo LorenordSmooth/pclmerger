@@ -3,15 +3,17 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/point_cloud.h>
-#include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/octree/octree_impl.h>
 #include <pcl/octree/octree_search.h>
 #include <pcl/octree/octree_base.h>
 #include <pcl/console/parse.h>
 #include <pcl/common/transforms.h>
-#include <pcl/visualization/pcl_visualizer.h>
+
+
+#include <pcl/PointIndices.h>
 #include <inttypes.h>
 #include <stdint.h>
+
 
 using namespace pcl;
 using namespace octree;
@@ -58,6 +60,7 @@ main(int argc, char** argv)
 	PointCloud<PointXYZRGBL>::Ptr cloud1(new PointCloud<PointXYZRGBL>());
 	PointCloud<PointXYZRGBL>::Ptr cloud2(new PointCloud<PointXYZRGBL>());
 	PointCloud<PointXYZRGBL>::Ptr cloud3(new PointCloud<PointXYZRGBL>());
+	//PointCloud<PointXYZRGBL>::Ptr cloudFiltered(new PointCloud<PointXYZRGBL>());
 
 	// Assuming both pointclouds will either be .ply or .pcd
 	/*if (file_is_pcd) {
@@ -86,26 +89,26 @@ main(int argc, char** argv)
 	}*/
 
 	//Zu Testzwecken kleine Pointclouds:
-	cloud1->width = 10;
+	cloud1->width = 30;
 	cloud1->height = 1;
 	cloud1->points.resize(cloud1->width * cloud1->height);
 
-	cloud2->width = 10;
+	cloud2->width = 50;
 	cloud2->height = 1;
 	cloud2->points.resize(cloud2->width * cloud2->height);
 
 	for (size_t i = 0; i < cloud1->points.size(); ++i)
 	{
-		cloud1->points[i].x = 9.99f - i;
-		cloud1->points[i].y = 9.99f - i;
-		cloud1->points[i].z = 9.99f - i;
+		cloud1->points[i].x = 0.01f + (float)i/3;
+		cloud1->points[i].y = 0.01f + (float)i/3;
+		cloud1->points[i].z = 0.01f + (float)i/3;
 	}
 
 	for (size_t i = 0; i < cloud2->points.size(); ++i)
 	{
-		cloud2->points[i].x = 10.01f - i;
-		cloud2->points[i].y = 10.01f - i;
-		cloud2->points[i].z = 10.01f - i;
+		cloud2->points[i].x = 9.99f - (float)i/5;
+		cloud2->points[i].y = 9.99f - (float)i/5;
+		cloud2->points[i].z = 9.99f - (float)i/5;
 	}
 	// Iteriere ueber beide Clouds und gebe jedem Punkt jeweils Label 1 oder 2, je nach Zugehhoerigkeit
 	uint32_t label1 = 1;
@@ -131,7 +134,7 @@ main(int argc, char** argv)
 	*cloud3 = *cloud3 + *cloud2;
 
 	// Tiefes des Baumes (standard scheint m, moeglicherweise immer im Bezug auf Quelldaten)
-	float resolution = 3.03f;
+	float resolution = 1.33f;
 
 	// Octree auf gemergte Pointcloud
 	OctreePointCloud<PointXYZRGBL> octree(resolution);
@@ -139,112 +142,83 @@ main(int argc, char** argv)
 	//octree.max_objs_per_leaf_ = (size_t)50000;
 
 	octree.setInputCloud(cloud3);
-	//octree.defineBoundingBox();
-	octree.defineBoundingBox(10.0f); // startet an erstem eingelesen Punkt, kann also sehr ungenau sein
+	// BoundingBox muss vor addPoints ausgelesen werden, Begruendung unklar aber durch Tests bestaetigt
+	// sowohl defineBoudingBox() als auch octree.defineBoundingBox(10.0f) liefern gewuenschte Resultate
+	octree.defineBoundingBox();
+	//octree.defineBoundingBox(10.0f);
 	octree.addPointsFromInputCloud();
-								
+
 	OctreePointCloud<PointXYZRGBL>::LeafNodeIterator iter(&octree);
 
 	// Vector speichert Indizes von Punkten im aktuellen Leafnode
 	std::vector<int> indexVector;
-
-	/*OctreePointCloudPointVector<PointXYZ>::LeafNodeIterator it;
-	const OctreePointCloudPointVector<PointXYZ>::LeafNodeIterator it_end = octree.leaf_end();
-
-	for (it = octree.leaf_begin(); it != it_end; ++it)
-	{
-		OctreeContainerPointIndices& container = it.getLeafContainer();
-		container.getPointIndices(indexVector);
-		for (size_t i = 0; i < indexVector.size(); ++i)
-			std::cout << "    " << cloud3->points[indexVector[i]].x
-			<< " " << cloud3->points[indexVector[i]].y
-			<< " " << cloud3->points[indexVector[i]].z
-			<< " " << cloud3->points[indexVector[i]].label
-			<< std::endl;
-		std::cout << " Ende eines Leafnode " << std::endl;
-	}*/
+	std::vector<int> indexVectorCloud1;
+	std::vector<int> indexVectorCloud2;
+	/*PointIndices::Ptr indexVectorCloud1(new pcl::PointIndices());
+	PointIndices::Ptr indexVectorCloud2(new pcl::PointIndices());*/
+	// Aus jedem Leafnode werden die relevanten Nodes in gesamtIndices gespeichert
+	//PointIndices::Ptr gesamtIndices(new pcl::PointIndices());
+	std::vector<int> gesamtIndices;
 
 	// Iteriere ueber alle Leafnodes
 	for (iter = octree.leaf_begin(); iter != octree.leaf_end(); ++iter) 
 		{
 
-		indexVector = iter.getLeafContainer().getPointIndicesVector();
+			indexVector = iter.getLeafContainer().getPointIndicesVector();
 
-		// Ueberpruefe bei jedem Punkt im Leafnode, welches Label er hat
-		// Die Pointcloud mit mehr Punkten im Leafnode wird praeferiert
-		// Zu Testzwecken erstmal einfach Ausgabe der Punkte im Vektor
-		for (size_t i = 0; i < indexVector.size(); ++i)
-			std::cout << "    " << cloud3->points[indexVector[i]].x
-			<< " " << cloud3->points[indexVector[i]].y
-			<< " " << cloud3->points[indexVector[i]].z 
-			<< " " << cloud3->points[indexVector[i]].label
-			<< std::endl;
-		std::cout << " Ende eines Leafnode " << std::endl;
+			/*int counterCloud1;
+			int counterCloud2;*/
 
-	////	std::vector<int>::iterator iterVector;
-	////	for (iterVector = indexVector.begin;
-	////		iterVector != indexVector.end; ++iterVector) {
-	////		std::cout << "    " << cloud1->points[indexVector[iterVector]].x
-	////			<< " " << cloud1->points[indexVector[iterVector]].y
-	////			<< " " << cloud1->points[indexVector[iterVector]].z << std::endl;
-	////		/*int counterCloud1;
-	////		int counterCloud2;
-	////		if (cloud3->points[iterVector].label = 1) {
-	////			counterCloud1++;
-	////		}
-	////		else {
-	////			counterCloud2++;
-	////		}
-	////	}*/
+			// Ueberpruefe bei jedem Punkt im Leafnode, welches Label er hat
+			// Die Pointcloud mit mehr Punkten im Leafnode wird praeferiert
+			// Zu Testzwecken erstmal einfach Ausgabe der Punkte im Vektor
+			for (size_t i = 0; i < indexVector.size(); ++i)
+			{
+				std::cout << " x " << cloud3->points[indexVector[i]].x
+					<< " Size " << indexVector.size()
+					<< " Label " << cloud3->points[indexVector[i]].label
+					<< std::endl;
+
+				int counterCloud1 = 0;
+				int counterCloud2 = 0;
+
+				if (cloud3->points[indexVector[i]].label == 1) {
+					counterCloud1++;
+					// jeden index aus Cloud1 in indexVectorCloud1 hinzufuegen
+					indexVectorCloud1.push_back(indexVector[i]);
+				}
+				else {
+					counterCloud2++;
+					// analog fuer Cloud2
+					indexVectorCloud2.push_back(indexVector[i]);
+				}
 			}
 
-	/*PointXYZRGBL searchPoint;
+			// fuege neue Punkte hinten an
+			int temp = gesamtIndices.size();
+			std::cout << " Cloud1 " << indexVectorCloud1.size() << " Cloud2 " << indexVectorCloud2.size();
+			// aktuelle Cloud1 Punkte adden zu relevantem Punkte Pool
+			if (indexVectorCloud1.size() >= indexVectorCloud2.size()) {
+				for (int i = 0; i < indexVectorCloud1.size(); ++i) {
+					gesamtIndices.push_back(indexVectorCloud1[i]);
+				}
+			}
 
-	searchPoint.x = 38.02509;
-	searchPoint.y = 138.52509;
-	searchPoint.z = 666.81418;
-
-	std::vector<int> pointIdxVec;
-
-	if (octree1.voxelSearch(searchPoint, pointIdxVec))
-	{
-		std::cout << "Neighbors within voxel search at (" << searchPoint.x
-			<< " " << searchPoint.y
-			<< " " << searchPoint.z << ")"
-			<< std::endl;
-
-		for (size_t i = 0; i < pointIdxVec.size(); ++i)
-			std::cout << "    " << cloud1->points[pointIdxVec[i]].x
-			<< " " << cloud1->points[pointIdxVec[i]].y
-			<< " " << cloud1->points[pointIdxVec[i]].z << std::endl;
-	}*/
-
-	//KdTreeFLANN<PointXYZ> kdtree;
-
-	//kdtree.setInputCloud(cloud);
-
-	//PointXYZ searchPoint;
-
-	////starting searchPoint
-	//searchPoint.x = 38.01541;
-	//searchPoint.y = 138.50537;
-	//searchPoint.z = 666.83116;
-
-	//// K nearest neighbor search
-
-	//int K = 10;
-
-	//std::vector<int> pointIdxNKNSearch(K);
-	//std::vector<float> pointNKNSquaredDistance(K);
-
-	//if (kdtree.nearestKSearch(searchPoint, K, pointIdxNKNSearch, pointNKNSquaredDistance) > 0)
-	//{
-	//	for (size_t i = 0; i < pointIdxNKNSearch.size(); ++i)
-	//		std::cout << "    " << cloud->points[pointIdxNKNSearch[i]].x
-	//		<< " " << cloud->points[pointIdxNKNSearch[i]].y
-	//		<< " " << cloud->points[pointIdxNKNSearch[i]].z
-	//		<< " (squared distance: " << pointNKNSquaredDistance[i] << ")" << std::endl;
-	//}
+			// aktuelle Cloud2 Punkte adden zu relevantem Punkte Pool
+			else {
+				for (size_t i = 0; i < indexVectorCloud2.size(); ++i) {
+					gesamtIndices.push_back(indexVectorCloud2[i]);
+				}
+			}
+			std::cout << " Ende eines Leafnode " << std::endl;
+			indexVectorCloud1.clear();
+			indexVectorCloud2.clear();
+		}
+		for (size_t i = 0; i < gesamtIndices.size(); ++i) {
+			std::cout << "    " << cloud3->points[gesamtIndices[i]].x <<
+						 "    " << cloud3->points[gesamtIndices[i]].label << 
+						 "    " << gesamtIndices[i] << std::endl;
+		}
 
 	return 0;
 }
