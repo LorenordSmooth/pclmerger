@@ -53,13 +53,23 @@ main(int argc, char** argv)
 		}
 	}
 
-	// Cloud XYZ1&2 sind die geladenen XYZRGB Baseclouds, Cloud1&2 converted zu XYZRGBL, Cloud3 die gemergte, Cloud4 die "gefilterte"
+	// Cloud XYZ1&2 sind die geladenen XYZRGB Baseclouds, Cloud1&2 converted zu XYZRGBL, CloudMerged die gemergte, Cloud4 die "gefilterte"
 	PointCloud<PointXYZRGB>::Ptr cloudXYZ1(new PointCloud<PointXYZRGB>());
 	PointCloud<PointXYZRGB>::Ptr cloudXYZ2(new PointCloud<PointXYZRGB>());
-	PointCloud<PointXYZRGBL>::Ptr cloud1(new PointCloud<PointXYZRGBL>());
-	PointCloud<PointXYZRGBL>::Ptr cloud2(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGB>::Ptr cloudXYZ3(new PointCloud<PointXYZRGB>());
+	PointCloud<PointXYZRGB>::Ptr cloudXYZ4(new PointCloud<PointXYZRGB>());
+	PointCloud<PointXYZRGB>::Ptr cloudXYZ5(new PointCloud<PointXYZRGB>());
+	PointCloud<PointXYZRGBL>::Ptr cloudFarbig1(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloudFarbig2(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloudRotBlau1(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloudRotBlau2(new PointCloud<PointXYZRGBL>());
 	PointCloud<PointXYZRGBL>::Ptr cloud3(new PointCloud<PointXYZRGBL>());
-	PointCloud<PointXYZRGBL>::Ptr cloudFiltered(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloud4(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloud5(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloudMergedFarbig(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloudMergedRotBlau(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloudFilteredFarbig(new PointCloud<PointXYZRGBL>());
+	PointCloud<PointXYZRGBL>::Ptr cloudFilteredRotBlau(new PointCloud<PointXYZRGBL>());
 
 	// Beide Clouds sind entweder .ply oder .pcd
 	if (file_is_pcd) {
@@ -97,8 +107,8 @@ main(int argc, char** argv)
 	}*/
 
 	// Konvertiere die beiden eingelesenen Clouds in (neue) XYZRGBL Clouds
-	copyPointCloud(*cloudXYZ1, *cloud1);
-	copyPointCloud(*cloudXYZ2, *cloud2);
+	copyPointCloud(*cloudXYZ1, *cloudFarbig1);
+	copyPointCloud(*cloudXYZ2, *cloudFarbig2);
 
 	/*for (size_t i = 0; i < cloudXYZ1->points.size(); ++i)
 		copyPoint(cloudXYZ1->points[i], cloud1->points[i]);*/
@@ -129,12 +139,19 @@ main(int argc, char** argv)
 		cloud2->points[i].z = 9.99f - (float)i/5;
 	}*/
 
+	*cloudRotBlau1 = *cloudFarbig1;
+	*cloudRotBlau2 = *cloudFarbig2;
+
 	// Iteriere ueber beide Clouds und gebe jedem Punkt jeweils Label 1 oder 2, je nach Zugehhoerigkeit
 	uint32_t label1 = 1;
 	uint8_t r1 = 255, g1 = 0, b1 = 0;
 	uint32_t rgb1 = ((uint32_t)r1 << 16 | (uint32_t)g1 << 8 | (uint32_t)b1);
 
-	for (auto &p1 : cloud1->points) {
+	// Labels und Farben setzten
+	for (auto &p1 : cloudFarbig1->points) {
+		p1.label = label1;
+	}
+	for (auto &p1 : cloudRotBlau1->points) {
 		p1.label = label1;
 		p1.rgb = *reinterpret_cast<float*>(&rgb1);
 	}
@@ -142,73 +159,81 @@ main(int argc, char** argv)
 	uint32_t label2 = 2;
 	uint8_t r2 = 0, g2 = 0, b2 = 255; 
 	uint32_t rgb2 = ((uint32_t)r2 << 16 | (uint32_t)g2 << 8 | (uint32_t)b2);
-	for (auto &p2 : cloud2->points) {
+	for (auto &p2 : cloudFarbig2->points) {
+		p2.label = label2;
+	}
+	for (auto &p2 : cloudRotBlau2->points) {
 		p2.label = label2;
 		p2.rgb = *reinterpret_cast<float*>(&rgb2);
 	}
 	// Merge beide Clouds (alternativ concatenatePointCloud?)
-	/*cloud3->width = cloud1->width + cloud2->width;
-	cloud3->height = 1;
-	cloud3->points.resize(cloud3->width * cloud3->height);
+	/*cloudMerged->width = cloud1->width + cloud2->width;
+	cloudMerged->height = 1;
+	cloudMerged->points.resize(cloudMerged->width * cloudMerged->height);
 
 	for (size_t i = 0; i < cloud1->size(); i++) {
-		cloud3->points[i] = cloud1->points[i];
+		cloudMerged->points[i] = cloud1->points[i];
 	}
 
 	for (size_t i = 0; i < cloud2->size(); i++) {
-		cloud3->points[i + cloud1->size()] = cloud2->points[i];
+		cloudMerged->points[i + cloud1->size()] = cloud2->points[i];
 	}*/
 	
-	*cloud3 = *cloud1;
-	*cloud3 = *cloud3 + *cloud2;
+	*cloudMergedFarbig = *cloudFarbig1;
+	*cloudMergedFarbig = *cloudMergedFarbig + *cloudFarbig2;
+
+	*cloudMergedRotBlau = *cloudRotBlau1;
+	*cloudMergedRotBlau = *cloudMergedRotBlau + *cloudRotBlau2;
 
 	// Tiefes des Baumes (standard scheint m, moeglicherweise immer im Bezug auf Quelldaten)
-	float resolution = 6.33f;
+	float resolution = 0.2f;
 
 	// Octree auf gemergte Pointcloud
-	OctreePointCloud<PointXYZRGBL> octree(resolution);
+	OctreePointCloud<PointXYZRGBL> octreeFarbig(resolution);
+	OctreePointCloud<PointXYZRGBL> octreeRotBlau(resolution);
 
 	//octree.max_objs_per_leaf_ = (size_t)50000;
-
-	octree.setInputCloud(cloud3);
+	
+	octreeFarbig.setInputCloud(cloudMergedFarbig);
+	octreeRotBlau.setInputCloud(cloudMergedRotBlau);
 	// BoundingBox muss vor addPoints ausgelesen werden, Begruendung unklar aber durch Tests bestaetigt
 	// sowohl defineBoudingBox() als auch octree.defineBoundingBox(10.0f) liefern gewuenschte Resultate
-	octree.defineBoundingBox();
+	octreeFarbig.defineBoundingBox();
+	octreeRotBlau.defineBoundingBox();
 	//octree.defineBoundingBox(10.0f);
-	octree.addPointsFromInputCloud();
+	octreeFarbig.addPointsFromInputCloud();
+	octreeRotBlau.addPointsFromInputCloud();
 
-	OctreePointCloud<PointXYZRGBL>::LeafNodeIterator iter(&octree);
+	OctreePointCloud<PointXYZRGBL>::LeafNodeIterator iterFarbig(&octreeFarbig);
+	OctreePointCloud<PointXYZRGBL>::LeafNodeIterator iterRotBlau(&octreeRotBlau);
 
 	// Vector speichert Indizes von Punkten im aktuellen Leafnode
 	std::vector<int> indexVector;
 	std::vector<int> indexVectorCloud1;
 	std::vector<int> indexVectorCloud2;
-	/*PointIndices::Ptr indexVectorCloud1(new pcl::PointIndices());
-	PointIndices::Ptr indexVectorCloud2(new pcl::PointIndices());*/
 	// Aus jedem Leafnode werden die relevanten Nodes in gesamtIndices gespeichert
-	//PointIndices::Ptr gesamtIndices(new pcl::PointIndices());
 	std::vector<int> gesamtIndices;
 
 	// Iteriere ueber alle Leafnodes
-	for (iter = octree.leaf_begin(); iter != octree.leaf_end(); ++iter) 
+	for (iterFarbig = octreeFarbig.leaf_begin(); iterFarbig != octreeFarbig.leaf_end(); ++iterFarbig)
 		{
 
-			indexVector = iter.getLeafContainer().getPointIndicesVector();
+			indexVector = iterFarbig.getLeafContainer().getPointIndicesVector();
 
 			// Ueberpruefe bei jedem Punkt im Leafnode, welches Label er hat
 			// Die Pointcloud mit mehr Punkten im Leafnode wird praeferiert
 			// Zu Testzwecken erstmal einfach Ausgabe der Punkte im Vektor
 			for (size_t i = 0; i < indexVector.size(); ++i)
 			{
-				/*std::cout << " x " << cloud3->points[indexVector[i]].x
+				/*std::cout << " x " << cloudMerged->points[indexVector[i]].x
 					<< " Size " << indexVector.size()
-					<< " Label " << cloud3->points[indexVector[i]].label
+					<< " Label " << cloudMerged->points[indexVector[i]].label
 					<< std::endl;*/
 
 				int counterCloud1 = 0;
 				int counterCloud2 = 0;
 
-				if (cloud3->points[indexVector[i]].label == 1) {
+				if (cloudMergedFarbig->points[indexVector[i]].label == 1) {
 					counterCloud1++;
 					// jeden index aus Cloud1 in indexVectorCloud1 hinzufuegen
 					indexVectorCloud1.push_back(indexVector[i]);
@@ -222,7 +247,6 @@ main(int argc, char** argv)
 
 			// fuege neue Punkte hinten an
 			int temp = gesamtIndices.size();
-			//std::cout << " Cloud1 " << indexVectorCloud1.size() << " Cloud2 " << indexVectorCloud2.size();
 			// aktuelle Cloud1 Punkte adden zu relevantem Punkte Pool
 			if (indexVectorCloud1.size() >= indexVectorCloud2.size()) {
 				for (int i = 0; i < indexVectorCloud1.size(); ++i) {
@@ -236,24 +260,82 @@ main(int argc, char** argv)
 					gesamtIndices.push_back(indexVectorCloud2[i]);
 				}
 			}
-			//std::cout << " Ende eines Leafnode " << std::endl;
 			indexVectorCloud1.clear();
 			indexVectorCloud2.clear();
 		}
 
+	// gesamtIndices erhaelt nun die gefilterte cloudMergedFarbig, diese Indices gilt es nun wieder in eine Cloud zu ueberfuehren
+	for (size_t i = 0; i < gesamtIndices.size(); ++i) {
+		cloudFilteredFarbig->push_back(cloudMergedFarbig->points[gesamtIndices[i]]);
+	}
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// !!! BEGINN ZWEITE LOOP ROT BLAU !!!
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// Identische Loop fuer RotBlau merged Wolke
+	for (iterRotBlau = octreeRotBlau.leaf_begin(); iterRotBlau != octreeRotBlau.leaf_end(); ++iterRotBlau)
+	{
+
+		indexVector = iterRotBlau.getLeafContainer().getPointIndicesVector();
+
+		// Ueberpruefe bei jedem Punkt im Leafnode, welches Label er hat
+		// Die Pointcloud mit mehr Punkten im Leafnode wird praeferiert
+		// Zu Testzwecken erstmal einfach Ausgabe der Punkte im Vektor
+		for (size_t i = 0; i < indexVector.size(); ++i)
+		{
+			int counterCloud1 = 0;
+			int counterCloud2 = 0;
+
+			if (cloudMergedRotBlau->points[indexVector[i]].label == 1) {
+				counterCloud1++;
+				// jeden index aus Cloud1 in indexVectorCloud1 hinzufuegen
+				indexVectorCloud1.push_back(indexVector[i]);
+			}
+			else {
+				counterCloud2++;
+				// analog fuer Cloud2
+				indexVectorCloud2.push_back(indexVector[i]);
+			}
+		}
+
+		// fuege neue Punkte hinten an
+		int temp = gesamtIndices.size();
+		// aktuelle Cloud1 Punkte adden zu relevantem Punkte Pool
+		if (indexVectorCloud1.size() >= indexVectorCloud2.size()) {
+			for (int i = 0; i < indexVectorCloud1.size(); ++i) {
+				gesamtIndices.push_back(indexVectorCloud1[i]);
+			}
+		}
+
+		// aktuelle Cloud2 Punkte adden zu relevantem Punkte Pool
+		else {
+			for (size_t i = 0; i < indexVectorCloud2.size(); ++i) {
+				gesamtIndices.push_back(indexVectorCloud2[i]);
+			}
+		}
+		indexVectorCloud1.clear();
+		indexVectorCloud2.clear();
+	}
+	// gesamtIndices erhaelt nun die gefilterte cloudMergedRotBlau, diese Indices gilt es nun wieder in eine Cloud zu ueberfuehren
+	for (size_t i = 0; i < gesamtIndices.size(); ++i) {
+		cloudFilteredRotBlau->push_back(cloudMergedRotBlau->points[gesamtIndices[i]]);
+	}
+
 	// Uebersicht zu Testzwecken
 	/*for (size_t i = 0; i < gesamtIndices.size(); ++i) {
-			std::cout << "    " << cloud3->points[gesamtIndices[i]].x <<
-						 "    " << cloud3->points[gesamtIndices[i]].label << 
+			std::cout << "    " << cloudMerged->points[gesamtIndices[i]].x <<
+						 "    " << cloudMerged->points[gesamtIndices[i]].label << 
 						 "    " << gesamtIndices[i] << std::endl;
 	}*/
 
-	// gesamtIndices erhaelt nun die gefilterte Cloud3, diese Indices gilt es nun wieder in eine Cloud zu ueberfuehren
-	for (size_t i = 0; i < gesamtIndices.size(); ++i) {
-		cloudFiltered->push_back(cloud3->points[gesamtIndices[i]]);
-	}
-	std::string writePath = "Test.ply";
-	pcl::io::savePLYFileBinary(writePath, *cloudFiltered);
+	// Schreibe cloudFilteredFarbig und cloudFilteredRotBlau jeweils in eine .ply Datei
+	std::ostringstream ss;
+	ss << resolution;
+	std::string s(ss.str());
+	std::string writePathFarbig = "Farbig"+s+".ply";
+	std::string writePathRotBlau = "RotBlau"+s+".ply";
+	io::savePLYFileBinary(writePathFarbig, *cloudFilteredFarbig);
+	io::savePLYFileBinary(writePathRotBlau, *cloudFilteredRotBlau);
 
 	return 0;
 }
