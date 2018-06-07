@@ -8,14 +8,30 @@
 #include <pcl/octree/octree_base.h>
 #include <pcl/console/parse.h>
 #include <pcl/common/transforms.h>
+#include <pcl/filters/radius_outlier_removal.h>
+#include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/surface/mls.h>
+#include <pcl/registration/ndt.h>
+#include <pcl/filters/approximate_voxel_grid.h>
 
 #include <pcl/PointIndices.h>
 #include <inttypes.h>
 #include <stdint.h>
 
+// je nach gewünschter Methode boolean-Variablen auf true setzten
+bool RemoveOutlier = false; // Punkte muessen Anzahl n Nachbarn in Radius r besitzen, um nicht gefiltert zu werden
+bool ConditionalRemoval = false; // Custom condition nach der gefiltert wird !NICHT IMPLEMENTIERT!
+bool StatistOutlier = false; // Removed noisy measurement (outliers) mit statistical analysis
+bool MovingLeastSquare = false; // Smoothen und resample noisy data via polynomial interpolation (runtime >8min, verliert RGB daten)
+bool PairWiseIncrementalRegistration = false; // braucht erst Implementierung der restlichen Scan Standorte
+bool NormalDistributionTrans = true; // braucht zwei Clouds die man alignen moechte, waere also wenn eher alternative zu bisher
+
 
 using namespace pcl;
 using namespace octree;
+using namespace io;
 
 void
 showHelp(char * program_name)
@@ -186,7 +202,7 @@ main(int argc, char** argv)
 	*cloudMergedRotBlau = *cloudMergedRotBlau + *cloudRotBlau2;
 
 	// Tiefes des Baumes (standard scheint m, moeglicherweise immer im Bezug auf Quelldaten)
-	float resolution = 0.2f;
+	float resolution = 0.15f;
 
 	// Octree auf gemergte Pointcloud
 	OctreePointCloud<PointXYZRGBL> octreeFarbig(resolution);
@@ -327,15 +343,102 @@ main(int argc, char** argv)
 						 "    " << cloudMerged->points[gesamtIndices[i]].label << 
 						 "    " << gesamtIndices[i] << std::endl;
 	}*/
-
+	
 	// Schreibe cloudFilteredFarbig und cloudFilteredRotBlau jeweils in eine .ply Datei
 	std::ostringstream ss;
 	ss << resolution;
 	std::string s(ss.str());
-	std::string writePathFarbig = "Farbig"+s+".ply";
-	std::string writePathRotBlau = "RotBlau"+s+".ply";
-	io::savePLYFileBinary(writePathFarbig, *cloudFilteredFarbig);
-	io::savePLYFileBinary(writePathRotBlau, *cloudFilteredRotBlau);
+	std::string writePathFarbig = "Farbig" + s + ".ply";
+	std::string writePathRotBlau = "RotBlau" + s + ".ply";
+	/*io::savePLYFileBinary(writePathFarbig, *cloudFilteredFarbig);
+	io::savePLYFileBinary(writePathRotBlau, *cloudFilteredRotBlau);*/
+
+	//////////////////////////////////
+	// Optionale "Nachfilterungen" //
+	////////////////////////////////
+	if(RemoveOutlier)
+	{
+		PointCloud<PointXYZRGBL>::Ptr cloudFilteredFarbigRemOut(new PointCloud<PointXYZRGBL>());
+		RadiusOutlierRemoval<PointXYZRGBL> RemOut;
+
+		RemOut.setInputCloud(cloudFilteredFarbig);
+		RemOut.setRadiusSearch(0.02);
+		RemOut.setMinNeighborsInRadius(2);
+		RemOut.filter(*cloudFilteredFarbigRemOut);
+
+		writePathFarbig = "FarbigRemOut" + s + ".ply";
+		savePLYFileBinary(writePathFarbig, *cloudFilteredFarbigRemOut);
+	}
+
+	if (StatistOutlier) 
+	{
+		PointCloud<PointXYZRGBL>::Ptr cloudFilteredFarbigStatOut(new PointCloud<PointXYZRGBL>());
+		StatisticalOutlierRemoval<pcl::PointXYZRGBL> StatOr;
+
+		StatOr.setInputCloud(cloudFilteredFarbig);
+		StatOr.setMeanK(50);
+		StatOr.setStddevMulThresh(1.0);
+		StatOr.filter(*cloudFilteredFarbigStatOut);
+
+		writePathFarbig = "FarbigStatOut" + s + ".ply";
+		savePLYFileBinary(writePathFarbig, *cloudFilteredFarbigStatOut);
+	}
+
+	// sagt explizit in der Dokumentation, dass auch andere Punkttypen als XYZ vertraeglich sind, 
+	// vertraegt aber kein XYZRGBL, LOL
+	if (MovingLeastSquare)
+	{
+		PointCloud<PointXYZRGB>::Ptr cloudFilteredFarbigNoL(new PointCloud<PointXYZRGB>());
+		copyPointCloud(*cloudFilteredFarbig, *cloudFilteredFarbigNoL);
+		search::KdTree<PointXYZRGB>::Ptr tree(new search::KdTree<PointXYZRGB>);
+
+		PointCloud<PointNormal> mls_points;
+		MovingLeastSquares<PointXYZRGB, PointNormal> mls;
+		mls.setComputeNormals(true);
+
+		mls.setInputCloud(cloudFilteredFarbigNoL);
+		mls.setPolynomialFit(true);
+		mls.setSearchMethod(tree);
+		mls.setSearchRadius(0.03);
+
+		mls.process(mls_points);
+
+		writePathFarbig = "FarbigMLS" + s + ".ply";
+		//io::savePCDFile(writePathFarbig, mls_points);
+		savePLYFileBinary(writePathFarbig, mls_points);
+	}
+
+	if (NormalDistributionTrans)
+	{
+		/*PointCloud<PointXYZRGBL>::Ptr filtered_cloud(new PointCloud<PointXYZRGBL>);
+		ApproximateVoxelGrid<PointXYZRGBL> approximate_voxel_filter;
+		approximate_voxel_filter.setLeafSize(0.2, 0.2, 0.2);
+		approximate_voxel_filter.setInputCloud(cloudFarbig1);
+		approximate_voxel_filter.filter(*filtered_cloud);*/
+
+		NormalDistributionsTransform<PointXYZRGBL, PointXYZRGBL> ndt;
+		ndt.setTransformationEpsilon(0.01);
+		ndt.setStepSize(0.1);
+		ndt.setResolution(1.0);
+
+		ndt.setMaximumIterations(35);
+
+		/*ndt.setInputSource(filtered_cloud);*/
+		ndt.setInputSource(cloudFarbig1);
+		ndt.setInputTarget(cloudFarbig2);
+
+		Eigen::AngleAxisf init_rotation(0.6931, Eigen::Vector3f::UnitZ());
+		Eigen::Translation3f init_translation(1.79387, 0.720047, 0);
+		Eigen::Matrix4f init_guess = (init_translation * init_rotation).matrix();
+
+		PointCloud<PointXYZRGBL>::Ptr output_cloud(new PointCloud<PointXYZRGBL>);
+		ndt.align(*output_cloud, init_guess);
+
+		transformPointCloud(*cloudFarbig1, *output_cloud, ndt.getFinalTransformation());
+
+		writePathFarbig = "FarbigNDT" + s + ".ply";
+		savePLYFileBinary(writePathFarbig, *output_cloud);
+	}
 
 	return 0;
 }
