@@ -26,7 +26,7 @@ bool ConditionalRemoval = false; // Custom condition nach der gefiltert wird !NI
 bool StatistOutlier = false; // Removed noisy measurement (outliers) mit statistical analysis
 bool MovingLeastSquare = false; // Smoothen und resample noisy data via polynomial interpolation (runtime >8min, verliert RGB daten)
 bool PairWiseIncrementalRegistration = false; // braucht erst Implementierung der restlichen Scan Standorte
-bool NormalDistributionTrans = true; // braucht zwei Clouds die man alignen moechte, waere also wenn eher alternative zu bisher
+bool NormalDistributionTrans = false; // braucht zwei Clouds die man alignen moechte, waere also wenn eher alternative zu bisher
 
 
 using namespace pcl;
@@ -75,6 +75,10 @@ main(int argc, char** argv)
 	PointCloud<PointXYZRGB>::Ptr cloudXYZ3(new PointCloud<PointXYZRGB>());
 	PointCloud<PointXYZRGB>::Ptr cloudXYZ4(new PointCloud<PointXYZRGB>());
 	PointCloud<PointXYZRGB>::Ptr cloudXYZ5(new PointCloud<PointXYZRGB>());
+	PointCloud<PointXYZRGB>::Ptr cloudXYZ6(new PointCloud<PointXYZRGB>());
+	PointCloud<PointXYZRGB>::Ptr cloudXYZ7(new PointCloud<PointXYZRGB>());
+	PointCloud<PointXYZRGB>::Ptr cloudXYZ8(new PointCloud<PointXYZRGB>());
+	PointCloud<PointXYZRGB>::Ptr cloudXYZ9(new PointCloud<PointXYZRGB>());
 	PointCloud<PointXYZRGBL>::Ptr cloudFarbig1(new PointCloud<PointXYZRGBL>());
 	PointCloud<PointXYZRGBL>::Ptr cloudFarbig2(new PointCloud<PointXYZRGBL>());
 	PointCloud<PointXYZRGBL>::Ptr cloudRotBlau1(new PointCloud<PointXYZRGBL>());
@@ -99,6 +103,43 @@ main(int argc, char** argv)
 			showHelp(argv[0]);
 			return -1;
 		}
+		if (PairWiseIncrementalRegistration && filenames.size() == 9) {
+			if (io::loadPCDFile(argv[filenames[2]], *cloudXYZ3) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[2]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPCDFile(argv[filenames[3]], *cloudXYZ4) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[3]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPCDFile(argv[filenames[4]], *cloudXYZ5) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[4]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPCDFile(argv[filenames[5]], *cloudXYZ6) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[5]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPCDFile(argv[filenames[6]], *cloudXYZ7) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[6]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPCDFile(argv[filenames[7]], *cloudXYZ8) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[7]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPCDFile(argv[filenames[8]], *cloudXYZ9) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[8]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+		}
 	}
 	else {
 		if (io::loadPLYFile(argv[filenames[0]], *cloudXYZ1) < 0) {
@@ -111,50 +152,50 @@ main(int argc, char** argv)
 			showHelp(argv[0]);
 			return -1;
 		}
+		if (PairWiseIncrementalRegistration && filenames.size() == 9) {
+			if (io::loadPLYFile(argv[filenames[2]], *cloudXYZ3) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[2]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPLYFile(argv[filenames[3]], *cloudXYZ4) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[3]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPLYFile(argv[filenames[4]], *cloudXYZ5) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[4]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPLYFile(argv[filenames[5]], *cloudXYZ6) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[5]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPLYFile(argv[filenames[6]], *cloudXYZ7) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[6]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPLYFile(argv[filenames[7]], *cloudXYZ8) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[7]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+			if (io::loadPLYFile(argv[filenames[8]], *cloudXYZ9) < 0) {
+				std::cout << "Fehler beim Laden der Cloud " << argv[filenames[8]] << std::endl << std::endl;
+				showHelp(argv[0]);
+				return -1;
+			}
+		}
 	}
-	
-	//const std::vector<PointXYZRGB,Eigen::aligned_allocator<PointXYZRGB>> test = cloudXYZ1->points;
-
-	/*for (size_t i = 0; i < cloudXYZ1->points.size(); ++i) {
-		cloudXYZ1->points[i].x = cloud1->points[i].x;
-		cloudXYZ1->points[i].y = cloud1->points[i].y;
-		cloudXYZ1->points[i].z = cloud1->points[i].z;
-		cloudXYZ1->points[i].rgb = cloud1->points[i].rgb;
-	}*/
 
 	// Konvertiere die beiden eingelesenen Clouds in (neue) XYZRGBL Clouds
 	copyPointCloud(*cloudXYZ1, *cloudFarbig1);
 	copyPointCloud(*cloudXYZ2, *cloudFarbig2);
 
-	/*for (size_t i = 0; i < cloudXYZ1->points.size(); ++i)
-		copyPoint(cloudXYZ1->points[i], cloud1->points[i]);*/
-
-	/*for (size_t i = 0; i < cloudXYZ2->points.size(); ++i)
-		copyPoint(cloudXYZ2->points[i], cloud2->points[i]);*/
-
-	// Zu Testzwecken kleine Pointclouds:
-	/*cloud1->width = 30;
-	cloud1->height = 1;
-	cloud1->points.resize(cloud1->width * cloud1->height);
-
-	cloud2->width = 50;
-	cloud2->height = 1;
-	cloud2->points.resize(cloud2->width * cloud2->height);
-
-	for (size_t i = 0; i < cloud1->points.size(); ++i)
-	{
-		cloud1->points[i].x = 0.01f + (float)i/3;
-		cloud1->points[i].y = 0.01f + (float)i/3;
-		cloud1->points[i].z = 0.01f + (float)i/3;
-	}
-
-	for (size_t i = 0; i < cloud2->points.size(); ++i)
-	{
-		cloud2->points[i].x = 9.99f - (float)i/5;
-		cloud2->points[i].y = 9.99f - (float)i/5;
-		cloud2->points[i].z = 9.99f - (float)i/5;
-	}*/
-
+	// Initialisiere RotBlau Cloud
 	*cloudRotBlau1 = *cloudFarbig1;
 	*cloudRotBlau2 = *cloudFarbig2;
 
@@ -173,7 +214,7 @@ main(int argc, char** argv)
 	}
 
 	uint32_t label2 = 2;
-	uint8_t r2 = 0, g2 = 0, b2 = 255; 
+	uint8_t r2 = 0, g2 = 0, b2 = 255;
 	uint32_t rgb2 = ((uint32_t)r2 << 16 | (uint32_t)g2 << 8 | (uint32_t)b2);
 	for (auto &p2 : cloudFarbig2->points) {
 		p2.label = label2;
@@ -186,15 +227,13 @@ main(int argc, char** argv)
 	/*cloudMerged->width = cloud1->width + cloud2->width;
 	cloudMerged->height = 1;
 	cloudMerged->points.resize(cloudMerged->width * cloudMerged->height);
-
 	for (size_t i = 0; i < cloud1->size(); i++) {
-		cloudMerged->points[i] = cloud1->points[i];
+	cloudMerged->points[i] = cloud1->points[i];
 	}
-
 	for (size_t i = 0; i < cloud2->size(); i++) {
-		cloudMerged->points[i + cloud1->size()] = cloud2->points[i];
+	cloudMerged->points[i + cloud1->size()] = cloud2->points[i];
 	}*/
-	
+
 	*cloudMergedFarbig = *cloudFarbig1;
 	*cloudMergedFarbig = *cloudMergedFarbig + *cloudFarbig2;
 
@@ -202,14 +241,14 @@ main(int argc, char** argv)
 	*cloudMergedRotBlau = *cloudMergedRotBlau + *cloudRotBlau2;
 
 	// Tiefes des Baumes (standard scheint m, moeglicherweise immer im Bezug auf Quelldaten)
-	float resolution = 0.15f;
+	float resolution = 0.10f;
 
 	// Octree auf gemergte Pointcloud
 	OctreePointCloud<PointXYZRGBL> octreeFarbig(resolution);
 	OctreePointCloud<PointXYZRGBL> octreeRotBlau(resolution);
 
 	//octree.max_objs_per_leaf_ = (size_t)50000;
-	
+
 	octreeFarbig.setInputCloud(cloudMergedFarbig);
 	octreeRotBlau.setInputCloud(cloudMergedRotBlau);
 	// BoundingBox muss vor addPoints ausgelesen werden, Begruendung unklar aber durch Tests bestaetigt
@@ -232,53 +271,53 @@ main(int argc, char** argv)
 
 	// Iteriere ueber alle Leafnodes
 	for (iterFarbig = octreeFarbig.leaf_begin(); iterFarbig != octreeFarbig.leaf_end(); ++iterFarbig)
+	{
+
+		indexVector = iterFarbig.getLeafContainer().getPointIndicesVector();
+
+		// Ueberpruefe bei jedem Punkt im Leafnode, welches Label er hat
+		// Die Pointcloud mit mehr Punkten im Leafnode wird praeferiert
+		// Zu Testzwecken erstmal einfach Ausgabe der Punkte im Vektor
+		for (size_t i = 0; i < indexVector.size(); ++i)
 		{
+			/*std::cout << " x " << cloudMerged->points[indexVector[i]].x
+			<< " Size " << indexVector.size()
+			<< " Label " << cloudMerged->points[indexVector[i]].label
+			<< std::endl;*/
 
-			indexVector = iterFarbig.getLeafContainer().getPointIndicesVector();
+			int counterCloud1 = 0;
+			int counterCloud2 = 0;
 
-			// Ueberpruefe bei jedem Punkt im Leafnode, welches Label er hat
-			// Die Pointcloud mit mehr Punkten im Leafnode wird praeferiert
-			// Zu Testzwecken erstmal einfach Ausgabe der Punkte im Vektor
-			for (size_t i = 0; i < indexVector.size(); ++i)
-			{
-				/*std::cout << " x " << cloudMerged->points[indexVector[i]].x
-					<< " Size " << indexVector.size()
-					<< " Label " << cloudMerged->points[indexVector[i]].label
-					<< std::endl;*/
-
-				int counterCloud1 = 0;
-				int counterCloud2 = 0;
-
-				if (cloudMergedFarbig->points[indexVector[i]].label == 1) {
-					counterCloud1++;
-					// jeden index aus Cloud1 in indexVectorCloud1 hinzufuegen
-					indexVectorCloud1.push_back(indexVector[i]);
-				}
-				else {
-					counterCloud2++;
-					// analog fuer Cloud2
-					indexVectorCloud2.push_back(indexVector[i]);
-				}
+			if (cloudMergedFarbig->points[indexVector[i]].label == 1) {
+				counterCloud1++;
+				// jeden index aus Cloud1 in indexVectorCloud1 hinzufuegen
+				indexVectorCloud1.push_back(indexVector[i]);
 			}
-
-			// fuege neue Punkte hinten an
-			int temp = gesamtIndices.size();
-			// aktuelle Cloud1 Punkte adden zu relevantem Punkte Pool
-			if (indexVectorCloud1.size() >= indexVectorCloud2.size()) {
-				for (int i = 0; i < indexVectorCloud1.size(); ++i) {
-					gesamtIndices.push_back(indexVectorCloud1[i]);
-				}
-			}
-
-			// aktuelle Cloud2 Punkte adden zu relevantem Punkte Pool
 			else {
-				for (size_t i = 0; i < indexVectorCloud2.size(); ++i) {
-					gesamtIndices.push_back(indexVectorCloud2[i]);
-				}
+				counterCloud2++;
+				// analog fuer Cloud2
+				indexVectorCloud2.push_back(indexVector[i]);
 			}
-			indexVectorCloud1.clear();
-			indexVectorCloud2.clear();
 		}
+
+		// fuege neue Punkte hinten an
+		int temp = gesamtIndices.size();
+		// aktuelle Cloud1 Punkte adden zu relevantem Punkte Pool
+		if (indexVectorCloud1.size() >= indexVectorCloud2.size()) {
+			for (int i = 0; i < indexVectorCloud1.size(); ++i) {
+				gesamtIndices.push_back(indexVectorCloud1[i]);
+			}
+		}
+
+		// aktuelle Cloud2 Punkte adden zu relevantem Punkte Pool
+		else {
+			for (size_t i = 0; i < indexVectorCloud2.size(); ++i) {
+				gesamtIndices.push_back(indexVectorCloud2[i]);
+			}
+		}
+		indexVectorCloud1.clear();
+		indexVectorCloud2.clear();
+	}
 
 	// gesamtIndices erhaelt nun die gefilterte cloudMergedFarbig, diese Indices gilt es nun wieder in eine Cloud zu ueberfuehren
 	for (size_t i = 0; i < gesamtIndices.size(); ++i) {
@@ -339,24 +378,24 @@ main(int argc, char** argv)
 
 	// Uebersicht zu Testzwecken
 	/*for (size_t i = 0; i < gesamtIndices.size(); ++i) {
-			std::cout << "    " << cloudMerged->points[gesamtIndices[i]].x <<
-						 "    " << cloudMerged->points[gesamtIndices[i]].label << 
-						 "    " << gesamtIndices[i] << std::endl;
+	std::cout << "    " << cloudMerged->points[gesamtIndices[i]].x <<
+	"    " << cloudMerged->points[gesamtIndices[i]].label <<
+	"    " << gesamtIndices[i] << std::endl;
 	}*/
-	
+
 	// Schreibe cloudFilteredFarbig und cloudFilteredRotBlau jeweils in eine .ply Datei
 	std::ostringstream ss;
 	ss << resolution;
 	std::string s(ss.str());
 	std::string writePathFarbig = "Farbig" + s + ".ply";
 	std::string writePathRotBlau = "RotBlau" + s + ".ply";
-	/*io::savePLYFileBinary(writePathFarbig, *cloudFilteredFarbig);
-	io::savePLYFileBinary(writePathRotBlau, *cloudFilteredRotBlau);*/
+	io::savePLYFileBinary(writePathFarbig, *cloudFilteredFarbig);
+	io::savePLYFileBinary(writePathRotBlau, *cloudFilteredRotBlau);
 
 	//////////////////////////////////
 	// Optionale "Nachfilterungen" //
 	////////////////////////////////
-	if(RemoveOutlier)
+	if (RemoveOutlier)
 	{
 		PointCloud<PointXYZRGBL>::Ptr cloudFilteredFarbigRemOut(new PointCloud<PointXYZRGBL>());
 		RadiusOutlierRemoval<PointXYZRGBL> RemOut;
@@ -370,7 +409,7 @@ main(int argc, char** argv)
 		savePLYFileBinary(writePathFarbig, *cloudFilteredFarbigRemOut);
 	}
 
-	if (StatistOutlier) 
+	if (StatistOutlier)
 	{
 		PointCloud<PointXYZRGBL>::Ptr cloudFilteredFarbigStatOut(new PointCloud<PointXYZRGBL>());
 		StatisticalOutlierRemoval<pcl::PointXYZRGBL> StatOr;
